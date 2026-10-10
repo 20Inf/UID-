@@ -1,6 +1,6 @@
 # UID Filter / UID 过滤
 
-作者：泷泽。当前版本：0.2.4。
+作者：泷泽。当前版本：0.2.5。
 
 通过过滤指定包的`getpriority(PRIO_USER)`  做到规避检测。
 
@@ -20,8 +20,8 @@ python tools/uid-seccomp-module/build.py --module-only
 
 输出文件：
 
-- `build/0.2.4/cq-uid-seccomp-0.2.4.zip`
-- `build/0.2.4/cq-uid-seccomp-0.2.4.zip.sha256`
+- `build/0.2.5/cq-uid-seccomp-0.2.5.zip`
+- `build/0.2.5/cq-uid-seccomp-0.2.5.zip.sha256`
 
 可用 `--output <目录>` 指定输出目录，或用 `--config <文件>` 指定默认配置。配置首行为 `enabled=1` 或 `enabled=0`，随后每行一个完整包名。省略 `--module-only` 同样只构建模块。
 
@@ -31,11 +31,13 @@ python tools/uid-seccomp-module/build.py --module-only
 
 当前操作按钮适配 KernelSU（`me.weishu.kernelsu`）。
 
+0.2.5 修复：在支持的平台策略上，保持合并前的 seccomp 指令预算，修复应用可安装过滤规则的额度差异。
+
 0.2.4 修复：合并系统 seccomp 策略时保持原有的 `NoNewPrivs` 状态和过滤器数量，移除模块启动日志。
 
 ## 源码
 
-- `tools/uid-seccomp-module/module.cpp`、`filter.h`：原生模块。
+- `tools/uid-seccomp-module/module.cpp`、`filter.h`、`policy.h`：原生模块。
 - `tools/uid-seccomp-module/panel/`：安装、配置脚本及 WebUI 资源。
 - `tools/uid-seccomp-module/build.py`：编译与 ZIP 打包。
 - `third_party/zygisk/`：原始头文件、许可声明和来源校验信息。

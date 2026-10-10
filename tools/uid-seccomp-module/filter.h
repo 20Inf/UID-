@@ -11,6 +11,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <vector>
+#include "policy.h"
 
 namespace uid_filter {
 struct Result { long result; int error; int nnp_before; size_t instructions; };
@@ -58,6 +59,7 @@ inline bool merge(const sock_fprog& platform, uint32_t self, std::vector<sock_fi
         has_allow |= op.k == SECCOMP_RET_ALLOW;
     }
     if (!has_allow) return false;
+    if (detail::merge_with_budget(platform, rule, output)) return true;
     output.assign(platform.filter, platform.filter + platform.len);
     for (size_t i = 0; i < platform.len; ++i) {
         if (output[i].code == (BPF_RET | BPF_K) && output[i].k == SECCOMP_RET_ALLOW)

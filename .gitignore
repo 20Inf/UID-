@@ -18,6 +18,7 @@
 !/tools/uid-seccomp-module/build.py
 !/tools/uid-seccomp-module/module.cpp
 !/tools/uid-seccomp-module/filter.h
+!/tools/uid-seccomp-module/policy.h
 !/tools/uid-seccomp-module/panel/
 /tools/uid-seccomp-module/panel/*
 !/tools/uid-seccomp-module/panel/action.sh

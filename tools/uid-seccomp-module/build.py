@@ -8,8 +8,8 @@ SDK = Path(os.environ.get('ANDROID_SDK_ROOT') or os.environ.get('ANDROID_HOME') 
 NDK = Path(os.environ.get('ANDROID_NDK_HOME') or str(SDK / 'ndk/27.3.13750724')) / 'toolchains/llvm/prebuilt/windows-x86_64'
 HEADER = ROOT / 'third_party/zygisk/zygisk.hpp'
 HEADER_SHA = 'f8d55e8b4f89d418c5941afe62ce6a09ddec1f4afd9a1b0a01eb40a93310dd28'
-VERSION = '0.2.4'
-VERSION_CODE = 6
+VERSION = '0.2.5'
+VERSION_CODE = 7
 DEFAULT_OUTPUT = ROOT / 'build' / VERSION
 
 def main():
