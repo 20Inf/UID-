@@ -11,6 +11,12 @@
 !/third_party/zygisk/zygisk.hpp
 !/third_party/zygisk/README.md
 !/third_party/zygisk/source.json
+!/third_party/local_cxa/
+/third_party/local_cxa/*
+!/third_party/local_cxa/atexit.cpp
+!/third_party/local_cxa/LICENSE
+!/third_party/local_cxa/NOTICE
+!/third_party/local_cxa/source.json
 !/tools/
 /tools/*
 !/tools/uid-seccomp-module/
@@ -19,6 +25,7 @@
 !/tools/uid-seccomp-module/module.cpp
 !/tools/uid-seccomp-module/filter.h
 !/tools/uid-seccomp-module/policy.h
+!/tools/uid-seccomp-module/exports.map
 !/tools/uid-seccomp-module/panel/
 /tools/uid-seccomp-module/panel/*
 !/tools/uid-seccomp-module/panel/action.sh
