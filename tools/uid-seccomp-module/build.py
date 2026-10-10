@@ -8,8 +8,8 @@ SDK = Path(os.environ.get('ANDROID_SDK_ROOT') or os.environ.get('ANDROID_HOME') 
 NDK = Path(os.environ.get('ANDROID_NDK_HOME') or str(SDK / 'ndk/27.3.13750724')) / 'toolchains/llvm/prebuilt/windows-x86_64'
 HEADER = ROOT / 'third_party/zygisk/zygisk.hpp'
 HEADER_SHA = 'f8d55e8b4f89d418c5941afe62ce6a09ddec1f4afd9a1b0a01eb40a93310dd28'
-VERSION = '0.2.3'
-VERSION_CODE = 5
+VERSION = '0.2.4'
+VERSION_CODE = 6
 DEFAULT_OUTPUT = ROOT / 'build' / VERSION
 
 def main():
@@ -29,7 +29,7 @@ def main():
     common = [NDK / 'bin/clang++.exe', '--target=aarch64-linux-android33', '-shared', '-fPIC',
               '-O2', '-std=c++17', '-static-libstdc++', '-Wall', '-Wextra', '-Werror',
               '-Wl,-z,max-page-size=16384', '-Wl,-z,relro,-z,now', '-fvisibility=hidden']
-    run(common + ['-I', HEADER.parent, HERE / 'module.cpp', '-llog', '-o', build / 'module/zygisk/arm64-v8a.so'])
+    run(common + ['-I', HEADER.parent, HERE / 'module.cpp', '-ldl', '-o', build / 'module/zygisk/arm64-v8a.so'])
     (build / 'module/module.prop').write_text(f'id=cq_uid_seccomp\nname=UID 过滤\nversion={VERSION}\nversionCode={VERSION_CODE}\nauthor=泷泽\ndescription=通过过滤指定包的`getpriority(PRIO_USER)`  做到规避检测\n', encoding='utf-8', newline='\n')
     (build / 'module/skip_mount').write_bytes(b'')
     for path in (HERE / 'panel').rglob('*'):

@@ -1,26 +1,87 @@
 #include <sys/types.h>
 #include "zygisk.hpp"
 #include "filter.h"
-#include <android/log.h>
+#include <dlfcn.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sstream>
 #include <string>
 
-#define LOG(...) __android_log_print(ANDROID_LOG_INFO, "CQUidSeccomp", __VA_ARGS__)
-
 class UidSeccomp final : public zygisk::ModuleBase {
+    using Prctl = int (*)(int, unsigned long, unsigned long, unsigned long, unsigned long);
+    inline static UidSeccomp* current_ = nullptr;
     zygisk::Api* api_ = nullptr;
     JNIEnv* env_ = nullptr;
     std::string package_;
     bool active_ = false;
     int expected_uid_ = -1;
+    Prctl original_prctl_ = nullptr;
+    struct stat runtime_{};
+    bool hook_active_ = false;
+    bool merged_ = false;
+
+    static int intercept_prctl(int option, unsigned long second, unsigned long third,
+                               unsigned long fourth, unsigned long fifth) {
+        auto& self = *current_;
+        if (option == PR_SET_SECCOMP && second == SECCOMP_MODE_FILTER && third && !self.merged_) {
+            const int saved_errno = errno;
+            try {
+                std::vector<sock_filter> code;
+                if (uid_filter::merge(*reinterpret_cast<const sock_fprog*>(third), uint32_t(self.expected_uid_), code)) {
+                    sock_fprog program{static_cast<unsigned short>(code.size()), code.data()};
+                    const int result = self.original_prctl_(option, second,
+                        reinterpret_cast<unsigned long>(&program), fourth, fifth);
+                    if (result == 0) { self.merged_ = true; return result; }
+                }
+            } catch (...) {
+                // Never prevent Android from installing its own sandbox policy.
+            }
+            errno = saved_errno;
+        }
+        return self.original_prctl_(option, second, third, fourth, fifth);
+    }
+
+    void prepare_platform_filter() {
+        // This hook exists only between the two specialization callbacks in
+        // the selected child. The framework applies its policy before setuid.
+        Dl_info info{};
+        void* symbol = dlsym(RTLD_DEFAULT, "_Z22set_app_seccomp_filterv");
+        if (!symbol || !dladdr(symbol, &info) || !info.dli_fname || stat(info.dli_fname, &runtime_) != 0) return;
+        current_ = this;
+        api_->pltHookRegister(runtime_.st_dev, runtime_.st_ino, "prctl",
+            reinterpret_cast<void*>(intercept_prctl), reinterpret_cast<void**>(&original_prctl_));
+        const bool committed = api_->pltHookCommit();
+        // A failed commit may have patched some entries. Retain the library
+        // until the original function has been put back in that case too.
+        hook_active_ = original_prctl_ != nullptr;
+        if (!committed && !hook_active_) current_ = nullptr;
+    }
+
+    bool restore_platform_filter() {
+        if (!hook_active_) return true;
+        void* displaced = nullptr;
+        api_->pltHookRegister(runtime_.st_dev, runtime_.st_ino, "prctl",
+            reinterpret_cast<void*>(original_prctl_), &displaced);
+        if (!api_->pltHookCommit()) return false;
+        if (displaced != reinterpret_cast<void*>(intercept_prctl)) {
+            // Another module may have chained our callback. Preserve its hook
+            // and keep this library mapped so its saved pointer stays valid.
+            if (displaced) {
+                api_->pltHookRegister(runtime_.st_dev, runtime_.st_ino, "prctl", displaced, nullptr);
+                api_->pltHookCommit();
+            }
+            return false;
+        }
+        hook_active_ = false;
+        current_ = nullptr;
+        return true;
+    }
 public:
     void onLoad(zygisk::Api* api, JNIEnv* env) override { api_ = api; env_ = env; }
     void preServerSpecialize(zygisk::ServerSpecializeArgs*) override {
         api_->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
     }
     void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
-        api_->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
         if (!args->app_data_dir || args->uid < 0 || args->uid % 100000 < 10000 || args->uid % 100000 > 19999) return;
         if (args->is_child_zygote && *args->is_child_zygote) return;
         const char* data = env_->GetStringUTFChars(args->app_data_dir, nullptr);
@@ -54,12 +115,13 @@ public:
         while (std::getline(input, line)) {
             if (line == package_) { active_ = true; expected_uid_ = args->uid; break; }
         }
+        if (active_) prepare_platform_filter();
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs*) override {
-        if (!active_ || getuid() != uint32_t(expected_uid_)) return;
-        const auto result = uid_filter::install({}, true);
-        LOG("version=0.2.0 package=%s uid=%u mode=other-apps install=%ld errno=%d nnp_before=%d instructions=%zu",
-            package_.c_str(), getuid(), result.result, result.error, result.nnp_before, result.instructions);
+        const bool restored = restore_platform_filter();
+        if (active_ && getuid() == uint32_t(expected_uid_) && !merged_) uid_filter::install({}, true);
+        // No callback may reference this library when Zygisk unloads it.
+        if (restored) api_->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
     }
 };
 REGISTER_ZYGISK_MODULE(UidSeccomp)

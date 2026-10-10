@@ -15,16 +15,7 @@
 namespace uid_filter {
 struct Result { long result; int error; int nnp_before; size_t instructions; };
 
-// A process-local visibility experiment, not a general security sandbox.
-inline Result install(std::vector<uint32_t> uids, bool other_apps = false) {
-    const uint32_t self = getuid();
-    if ((!other_apps && uids.empty()) || uids.size() > 256) return {-1, EINVAL, -1, 0};
-    for (auto uid : uids) {
-        if (uid == self || uid % 100000 < 10000 || uid % 100000 > 19999
-                || uid / 100000 != self / 100000) return {-1, EINVAL, -1, 0};
-    }
-    std::sort(uids.begin(), uids.end());
-    uids.erase(std::unique(uids.begin(), uids.end()), uids.end());
+inline std::vector<sock_filter> make_rule(uint32_t self, const std::vector<uint32_t>& uids, bool other_apps) {
     std::vector<sock_filter> code;
     auto load = [&](uint32_t offset) { code.push_back(BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offset)); };
     auto equal = [&](uint32_t value, uint8_t yes, uint8_t no) {
@@ -49,6 +40,44 @@ inline Result install(std::vector<uint32_t> uids, bool other_apps = false) {
         for (auto uid : uids) { equal(uid, 0, 1); ret(SECCOMP_RET_ERRNO | ESRCH); }
     }
     ret(SECCOMP_RET_ALLOW);
+    return code;
+}
+
+// Redirect only the platform policy's ALLOW leaves. Denials, architecture
+// checks and all existing relative jumps retain their original behavior.
+inline bool merge(const sock_fprog& platform, uint32_t self, std::vector<sock_filter>& output) {
+    if (!platform.filter || !platform.len || self % 100000 < 10000 || self % 100000 > 19999) return false;
+    const auto rule = make_rule(self, {}, true);
+    if (platform.len > BPF_MAXINSNS - rule.size()) return false;
+    bool has_allow = false;
+    for (size_t i = 0; i < platform.len; ++i) {
+        const auto& op = platform.filter[i];
+        if (BPF_CLASS(op.code) != BPF_RET) continue;
+        if (op.code != (BPF_RET | BPF_K)) return false;
+        if ((op.k & SECCOMP_RET_ACTION_FULL) == SECCOMP_RET_ALLOW && op.k != SECCOMP_RET_ALLOW) return false;
+        has_allow |= op.k == SECCOMP_RET_ALLOW;
+    }
+    if (!has_allow) return false;
+    output.assign(platform.filter, platform.filter + platform.len);
+    for (size_t i = 0; i < platform.len; ++i) {
+        if (output[i].code == (BPF_RET | BPF_K) && output[i].k == SECCOMP_RET_ALLOW)
+            output[i] = BPF_STMT(BPF_JMP | BPF_JA, uint32_t(platform.len - i - 1));
+    }
+    output.insert(output.end(), rule.begin(), rule.end());
+    return true;
+}
+
+// Compatibility fallback for loaders that cannot intercept the platform policy.
+inline Result install(std::vector<uint32_t> uids, bool other_apps = false) {
+    const uint32_t self = getuid();
+    if ((!other_apps && uids.empty()) || uids.size() > 256) return {-1, EINVAL, -1, 0};
+    for (auto uid : uids) {
+        if (uid == self || uid % 100000 < 10000 || uid % 100000 > 19999
+                || uid / 100000 != self / 100000) return {-1, EINVAL, -1, 0};
+    }
+    std::sort(uids.begin(), uids.end());
+    uids.erase(std::unique(uids.begin(), uids.end()), uids.end());
+    auto code = make_rule(self, uids, other_apps);
     const int nnp = prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0);
     if (nnp < 0) return {-1, errno, nnp, code.size()};
     if (!nnp && prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) return {-1, errno, nnp, code.size()};

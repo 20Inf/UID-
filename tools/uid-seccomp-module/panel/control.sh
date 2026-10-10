@@ -41,7 +41,7 @@ status() {
     enabled=false; [ "$(head -n 1 "$STORE/config")" = enabled=1 ] && enabled=true
     disabled=false; [ ! -f "$CURRENT/disable" ] || disabled=true
     pending=false; [ ! -f "$CURRENT/update" ] || pending=true
-    printf '{"enabled":%s,"moduleDisabled":%s,"pendingUpdate":%s,"version":"0.2.3","packages":[' "$enabled" "$disabled" "$pending"
+    printf '{"enabled":%s,"moduleDisabled":%s,"pendingUpdate":%s,"version":"0.2.4","packages":[' "$enabled" "$disabled" "$pending"
     comma=''
     tail -n +2 "$STORE/config" | while IFS= read -r package; do
         printf '%s"%s"' "$comma" "$package"; comma=,

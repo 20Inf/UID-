@@ -1,6 +1,6 @@
 # UID Filter / UID 过滤
 
-作者：泷泽。当前版本：0.2.3。
+作者：泷泽。当前版本：0.2.4。
 
 通过过滤指定包的`getpriority(PRIO_USER)`  做到规避检测。
 
@@ -20,8 +20,8 @@ python tools/uid-seccomp-module/build.py --module-only
 
 输出文件：
 
-- `build/0.2.3/cq-uid-seccomp-0.2.3.zip`
-- `build/0.2.3/cq-uid-seccomp-0.2.3.zip.sha256`
+- `build/0.2.4/cq-uid-seccomp-0.2.4.zip`
+- `build/0.2.4/cq-uid-seccomp-0.2.4.zip.sha256`
 
 可用 `--output <目录>` 指定输出目录，或用 `--config <文件>` 指定默认配置。配置首行为 `enabled=1` 或 `enabled=0`，随后每行一个完整包名。省略 `--module-only` 同样只构建模块。
 
@@ -30,6 +30,8 @@ python tools/uid-seccomp-module/build.py --module-only
 使用兼容的模块管理器和 Zygisk 提供程序安装 ZIP，重启后打开模块 WebUI。面板支持开关过滤、添加和移除包名，以及保存并应用配置。配置切换会停止过滤状态发生变化的目标应用，重新打开后生效；不会清除应用数据。
 
 当前操作按钮针对 `me.weishu.kernelsu`，其他管理器的面板入口需要适配验证。未对所有设备或管理器作兼容性保证。
+
+支持时，模块将规则合并到 Android 原有的 seccomp 策略。无法合并的平台会回退到独立过滤器，仍可能改变 `NoNewPrivs` 和过滤器数量。该模块不保证消除所有可观察差异。
 
 ## 源码
 
