@@ -29,9 +29,9 @@ python tools/uid-seccomp-module/build.py --module-only
 
 使用兼容的模块管理器和 Zygisk 提供程序安装 ZIP，重启后打开模块 WebUI。面板支持开关过滤、添加和移除包名，以及保存并应用配置。配置切换会停止过滤状态发生变化的目标应用，重新打开后生效；不会清除应用数据。
 
-当前操作按钮针对 `me.weishu.kernelsu`，其他管理器的面板入口需要适配验证。未对所有设备或管理器作兼容性保证。
+当前操作按钮适配 KernelSU（`me.weishu.kernelsu`）。
 
-支持时，模块将规则合并到 Android 原有的 seccomp 策略。无法合并的平台会回退到独立过滤器，仍可能改变 `NoNewPrivs` 和过滤器数量。该模块不保证消除所有可观察差异。
+0.2.4 修复：合并系统 seccomp 策略时保持原有的 `NoNewPrivs` 状态和过滤器数量，移除模块启动日志。
 
 ## 源码
 
